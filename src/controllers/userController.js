@@ -1,96 +1,77 @@
-import fs from "fs";
+import { User } from "../models/userModel.js";
 
-const userDataFile = "user_data.txt";
-
-const readUserData = () => {
+export const getUsers = async (req, res, next) => {
   try {
-    const data = fs.readFileSync(userDataFile, "utf-8");
-    return JSON.parse(data);
+    res.json(await User.find());
   } catch (error) {
-    return [];
+    next(error);
   }
-};
+}
 
-const writeUserData = (userData) => {
-  const dataToWrite = JSON.stringify(userData);
-  fs.writeFileSync(userDataFile, dataToWrite, "utf-8");
-};
-
-let userData = readUserData();
-
-export const getUsers = (req, res, next) => {
+export const getSingleUser = async (req, res, next) => {
   try {
-    res.json({
-      message: "Liste aller Benutzer abgerufen",
-      users: userData,
-    });
+    res.json(await User.findById(req.params.id));
   } catch (error) {
-    error.message = "Data not found.";
-    error.status = 404;
+    next(error);
+  }
+}
+
+export const addUser = async (req, res, next) => {
+  try {
+    const { email, username, password } = req.body;
+
+    const newUser = new User({
+      email,
+      username,
+      password,
+    })
+
+    await User.create(newUser);
+    res.status(201).json({ message: 'Added book succesfully.'})
+  } catch (error) {
+    error.message = "Failed to create new user.";
+    error.status = 500;
     next(error)
   }
 }
 
-export const addUser = (req, res) => {
+export const updateUser = async (req, res, next) => {
   try {
-    const newUser = req.body;
-    userData.push(newUser);
-  
-    writeUserData(userData)
-  
-    res.json({
-      message: "Neuer Benutzer erstellt",
-      user: newUser,
-    });
-  } catch (error) {
-    error.message = "Invalid user data provided.";
-    error.status = 400;
-    next(error)
-  }
-}
+    const updatedUser = await User.findByIdAndUpdate(
+      req.params.id,
+      {
+        $set: req.body,
+      },
+      {
+        new: true,
+        runValidators: true,
+      }
+    )
 
-export const updateUser = (req, res, next) => {
-  try {
-    const userID = parseInt(req.params.userID);
-    const index = userData.findIndex(user => user.id === userID);
-
-    if (index !== -1) {
-      userData[index] = { ...userData[index], ...req.body };
-      writeUserData(userData);
-      res.json({
-        message: "User has been updated.",
-        user: userData[index]
-      });
-    } else {
-      res.status(404).json({
-        message: "User was not found."
-      });
+    if (!updatedUser) {
+      const error = new Error('User not found.');
+      error.status = 404;
+      next(error);
     }
+    res.json({ message: "User updated." });
   } catch (error) {
-    error.message = "User could not be updated.";
-    error.status = 400;
     next(error);
   }
 };
 
-export const deleteUser = (req, res) => {
+// soft-delete
+export const deleteUser = async (req, res, next) => {
   try {
-    const userID = parseInt(req.params.userID);
-    const index = userData.findIndex(user => user.id === userID);
-  
-    if (index !== -1) {
-      const deletedUser = userData.splice(index, 1);
-      writeUserData(userData);
-      res.json({
-        message: "User has been deleted.",
-        userData: deletedUser
-      })
-    } else {
-      res.status(404).json({message: "User not found."})
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      const error = new Error('User not found.');
+      error.status = 404;
+      next(error);
     }
+    user.deleted = true;
+    await user.save();
+    res.json({ message: "User soft deleted" })
   } catch (error) {
-    error.message = "User could not be deleted.";
-    error.status = 400;
     next(error);
   }
 }
