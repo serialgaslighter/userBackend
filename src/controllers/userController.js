@@ -18,16 +18,8 @@ export const getSingleUser = async (req, res, next) => {
 
 export const addUser = async (req, res, next) => {
   try {
-    const { email, username, password } = req.body;
-
-    const newUser = new User({
-      email,
-      username,
-      password,
-    })
-
-    await User.create(newUser);
-    res.status(201).json({ message: 'Added book succesfully.'})
+    await User.create(req.body);
+    res.status(201).json({ message: 'Added user succesfully.'})
   } catch (error) {
     error.message = "Failed to create new user.";
     error.status = 500;
